@@ -81,6 +81,13 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/jobApplications/jobs/:user_id", async (req, res) => {
+      const jobId = req.params.user_id;
+      const query = { user_id: jobId };
+      const result = await jobApplicationCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.post("/job-application", async (req, res) => {
       const application = req.body;
       const result = await jobApplicationCollection.insertOne(application);
@@ -110,6 +117,22 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await jobApplicationCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.patch("/job-application/:id", async (req, res) => {
+      const id = req.params.id;
+      const data = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          status: data.status,
+        },
+      };
+      const result = await jobApplicationCollection.updateOne(
+        query,
+        updatedDoc
+      );
       res.send(result);
     });
 

@@ -35,17 +35,16 @@ async function run() {
       if (email) {
         query = { hr_email: email };
       }
-      const cursor = jobCollection.find(query);
+      const cursor = jobCollection.find(query).sort({ createdAt: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
 
-    // app.get('/jobs',async(req,res)=>{
-    //   const cursor = jobCollection.find(query).sort({ createdAt: -1 }).limit(8);
-    //   const result = await cursor.toArray();
-    //   res.send(result);
-    // })
-
+    app.get("/HomeJobs", async (req, res) => {
+      const cursor = jobCollection.find().sort({ createdAt: -1 }).limit(8);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
     app.get("/jobs/:id", async (req, res) => {
       const id = req.params.id;
@@ -56,23 +55,10 @@ async function run() {
 
     app.post("/jobs", async (req, res) => {
       const newJob = req.body;
-      newJob.createdAt = new Date(); 
+      newJob.createdAt = new Date();
       const result = await jobCollection.insertOne(newJob);
       res.send(result);
     });
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     // job Application
 
@@ -98,6 +84,25 @@ async function run() {
     app.post("/job-application", async (req, res) => {
       const application = req.body;
       const result = await jobApplicationCollection.insertOne(application);
+
+      const id = application.user_id;
+      const query = { _id: new ObjectId(id) };
+      const job = await jobCollection.findOne(query);
+      let newCount = 0;
+      if (job.applicationCount) {
+        newCount = job.applicationCount + 1;
+      } else {
+        newCount = 1;
+      }
+
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          applicationCount: newCount,
+        },
+      };
+      const updatedResult = await jobCollection.updateOne(filter, updatedDoc);
+
       res.send(result);
     });
 

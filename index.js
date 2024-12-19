@@ -9,12 +9,22 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "http://localhost:5173",
+      "https://job-poratl-6dc38.web.app",
+      "https://job-poratl-6dc38.firebaseapp.com",
+    ],
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(cookieParser());
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+};
 
 const verifyToken = (req, res, next) => {
   const token = req.cookies?.token;
@@ -25,7 +35,7 @@ const verifyToken = (req, res, next) => {
     if (error) {
       return res.status(401).send({ message: "UnAuthorized Access" });
     }
-    req.user = decoded;
+    req.decoded = decoded;
 
     next();
   });
@@ -45,7 +55,8 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
+
     const jobCollection = client.db("job-portal").collection("jobs");
     const jobApplicationCollection = client
       .db("job-portal")
@@ -54,15 +65,8 @@ async function run() {
     // create jwt token
     app.post("/jwt", (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT_ACCESS_TOKEN, {
-        expiresIn: "5h",
-      });
-      res
-        .cookie("token", token, {
-          httpOnly: true,
-          secure: false,
-        })
-        .send({ success: true });
+      const token = jwt.sign(user, process.env.JWT_ACCESS_TOKEN);
+      res.cookie("token", token, cookieOptions).send({ success: true });
     });
 
     // remove jwt token
@@ -70,7 +74,8 @@ async function run() {
       res
         .clearCookie("token", {
           httpOnly: true,
-          secure: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
@@ -112,10 +117,10 @@ async function run() {
       const email = req.query.email;
       const query = { user_email: email };
 
-      // console.log(' cookies',req.cookies);
-      // if (req.user.email !== req.query.email) {
-      //   return res.status(403).send({ message: "Forbidden access" });
-      // }
+      // Valid user check
+      if (req.decoded.user !== req.query.email) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
 
       const result = await jobApplicationCollection.find(query).toArray();
       for (const application of result) {
@@ -196,10 +201,10 @@ async function run() {
     });
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
